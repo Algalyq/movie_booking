@@ -81,7 +81,6 @@ const SeatBookingScreen = ({navigation, route}: any) => {
     return weekdays[date.getDay()];
   };
 
-
   const getDateNumber = (dateString: string): string => {
     const date = new Date(dateString);
     return String(date.getDate()).padStart(2, "0"); // Ensure 2-digit format
@@ -89,7 +88,6 @@ const SeatBookingScreen = ({navigation, route}: any) => {
 
   const [dateArray, setDateArray] = useState<any[]>(generateDate());
   
-
   const [selectedDateIndex, setSelectedDateIndex] = useState({
     fullDate: route.params.date,
     day: getDayName(route.params.date),
@@ -126,6 +124,38 @@ const SeatBookingScreen = ({navigation, route}: any) => {
     }
   };
 
+  const postBooking = async () => {
+    const url = "http://localhost:8001/api/bookings/";
+  
+    const bookingData = {
+      film: 2,
+      session: 3,
+      seats: {
+        "A": [1, 2],
+      },
+    };
+  
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer 2fb2309ecdfa0619a4f9baa59dc4936dd68d230d",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(bookingData),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Error: ${response.statusText}`);
+      }
+  
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Booking failed:", error);
+    }
+  };
+
   const BookSeats = async () => {
     if (
       selectedSeatArray.length !== 0 
@@ -146,12 +176,18 @@ const SeatBookingScreen = ({navigation, route}: any) => {
           error,
         );
       }
-      navigation.navigate('TicketScreen', {
-        seatArray: selectedSeatArray,
-        time: selectedTimeIndex,
-        date: selectedDateIndex,
-        ticketImage: ticketImage,
-      });
+      postBooking();
+      navigation.navigate('SuccessScreen');
+      // navigation.navigate('TicketScreen', {
+      //   title: route.params.title,
+      //   hall: route.params.Hall,
+      //   cinema: route.params.cinema,
+      //   language: route.params.Language,
+      //   seatArray: selectedSeatArray,
+      //   time: selectedTimeIndex,
+      //   date: selectedDateIndex,
+      //   ticketImage: ticketImage,
+      // });
     } else {
       ToastAndroid.showWithGravity(
         'Please Select Seats, Date and Time of the Show',

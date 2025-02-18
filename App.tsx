@@ -8,7 +8,7 @@ import SearchScreen from './src/screens/SearchScreen';
 import CinemaScreen from './src/screens/CinemaScreen';
 import MyTicketsScreen from './src/screens/MyTickets';
 import TicketScreen from './src/screens/TicketScreen';
-// import TestTicketScreen from './src/screens/TicketScreen';
+import SuccessScreen from './src/screens/SuccessScreen';
 const Stack = createNativeStackNavigator();
 
 const App = () => {
@@ -49,6 +49,11 @@ const App = () => {
           name="TicketScreen"
           component={TicketScreen}
           options={{animation: 'default'}}
+        />
+        <Stack.Screen
+          name="SuccessScreen"
+          component={SuccessScreen}
+          options={{animation: 'slide_from_bottom'}}
         />
       </Stack.Navigator>
     </NavigationContainer>

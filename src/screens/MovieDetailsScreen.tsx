@@ -28,10 +28,42 @@ interface Screening {
   prices: number[];
 }
 
+const transformMovieData = (json: any) => {
+  return {
+    title: json.title,
+    overview: json.overview,
+    release_date: json.release_date,
+    runtime: json.runtime,
+    tagline: json.tagline,
+    genres: json.genres.slice(0, 2), // Get only the first two genres
+    poster_path: json.poster_path,
+  };
+};
+let idMovie = 1;
 const getMovieDetails = async (movieid: number) => {
   try {
     let response = await fetch(movieDetails(movieid));
     let json = await response.json();
+    // Transform data
+    let transformedData = transformMovieData(json);
+    console.log(json.id);
+    // Send POST request
+    let postResponse = await fetch("http://localhost:8001/api/films/import_film/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(transformedData),
+    });
+
+    if (!postResponse.ok) {
+      throw new Error("Failed to import film");
+    }
+
+    let result = await postResponse.json();
+    idMovie = result.id;
+    console.log("Film imported successfully:", result);
+    // return result;
     return json;
   } catch (error) {
     console.error('Something Went wrong in getMoviesDetails Function', error);
@@ -51,64 +83,71 @@ const getMovieCastDetails = async (movieid: number) => {
   }
 };
 
-const screeningsData: { [key: string]: Screening[] } = {
-  // Mock data mapped to specific dates
-  "2025-02-12": [
-    {
-      time: "14:05",
-      cinema: "Chaplin MEGA Alma-Ata",
-      hall: "Зал 13",
-      language: "РУС",
-      prices: [2900, 1700, 1900],
-    },
-    {
-      time: "14:20",
-      cinema: "Kinopark 4 Globus",
-      hall: "Зал 2",
-      language: "РУС",
-      prices: [1700, 1000, 1300],
-    },
-    {
-      time: "14:05",
-      cinema: "Chaplin MEGA Alma-Ata",
-      hall: "Зал 13",
-      language: "РУС",
-      prices: [2900, 1700, 1900],
-    },
-    {
-      time: "14:20",
-      cinema: "Kinopark 4 Globus",
-      hall: "Зал 2",
-      language: "РУС",
-      prices: [1700, 1000, 1300],
-    },
-  ],
-  "2025-02-13": [
-    {
-      time: "14:30",
-      cinema: "Kinopark 5 Premium Forum",
-      hall: "Зал 3 Comfort – 3 этаж",
-      language: "РУС",
-      prices: [2600, 1600, 2100],
-    },
-    {
-      time: "16:30",
-      cinema: "Kinopark 5 Premium Forum",
-      hall: "Зал 3 Comfort",
-      language: "РУС",
-      prices: [2600, 1600, 2100],
-    },
-  ],
+const fetchScreenings = async (filmId: number) => {
+  const url = `http://localhost:8001/api/sessions/${filmId}/sessions_by_film_and_date/`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Authorization": "Token 2fb2309ecdfa0619a4f9baa59dc4936dd68d230d",
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error fetching data: ${response.statusText}`);
+    }
+
+    const data: { [key: string]: any[] } = await response.json();
+
+    const screeningsData: { [key: string]: Screening[] } = {};
+
+    for (const [date, sessions] of Object.entries(data)) {
+      screeningsData[date] = sessions.map((session) => ({
+        time: session.time,
+        cinema: session.cinema,
+        hall: session.hall,
+        language: session.language,
+        prices: session.prices,
+      }));
+    }
+
+    return screeningsData;
+  } catch (error) {
+    console.error("Failed to fetch screenings:", error);
+    return {};
+  }
 };
 
 const MovieDetailsScreen = ({navigation, route}: any) => {
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(today.toISOString().split("T")[0]);
+  const [screeningsData, setScreeningsData] = useState<{ [key: string]: Screening[] }>({});
+  
   const [selectedScreening, setSelectedScreening] = useState<{
     date: string;
     time: string;
     cinema: string;
   } | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const data = await fetchScreenings(idMovie); 
+      setScreeningsData(data);
+      if (data[selectedDate] && data[selectedDate].length > 0) {
+        setSelectedScreening({
+          date: selectedDate,
+          time: data[selectedDate][0].time,
+          cinema: data[selectedDate][0].cinema,
+        });
+      }
+    };
+
+    fetchData();
+  }, [selectedDate]); 
+
   const getNext7Days = (): { day: string; date: string }[] => {
     const days = [];
     const weekdays = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
@@ -182,6 +221,7 @@ const MovieDetailsScreen = ({navigation, route}: any) => {
           navigation.push('SeatBooking', {
             BgImage: baseImagePath('w780', movieData.backdrop_path),
             PosterImage: baseImagePath('original', movieData.poster_path),
+            title: movieData.title,
             date: selectedDate,
             time: item.time,
             cinema: item.cinema,
